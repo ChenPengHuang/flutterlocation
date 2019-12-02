@@ -287,6 +287,73 @@ public class LocationPlugin implements MethodCallHandler, StreamHandler, PluginR
                     mFusedLocationClient.removeLocationUpdates(mLocationCallback);
                 }
             }
+
+            @Override
+            public void onLocationAvailability(LocationAvailability locationAvailability) {
+                super.onLocationAvailability(locationAvailability);
+                if(!locationAvailability.isLocationAvailable()){
+                    String locationProvider = "";
+                    List<String> providers = locationManager.getProviders(true);
+                    if(providers.contains(LocationManager.GPS_PROVIDER)){
+                        locationProvider = LocationManager.GPS_PROVIDER;
+                    }else if(providers.contains(LocationManager.NETWORK_PROVIDER)){
+                        locationProvider = LocationManager.NETWORK_PROVIDER;
+                    }else if(providers.size() > 0){
+                        locationProvider = providers.get(0);
+                    }
+
+                    if(locationProvider != null && !locationProvider.equals("")){
+                        locationManager.requestLocationUpdates(locationProvider, LocationPlugin.this.update_interval_in_milliseconds
+                                , LocationPlugin.this.distanceFilter, new LocationListener() {
+                                    @Override
+                                    public void onLocationChanged(Location location) {
+                                        HashMap<String ,Double> loc = new HashMap<>();
+                                        loc.put("latitude" , location.getLatitude());
+                                        loc.put("longitude" , location.getLongitude());
+                                        loc.put("accuracy" , location.getAltitude());
+
+                                        if(mLastMslAltitude == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M){
+                                            loc.put("altitude" , location.getAltitude());
+                                        }else{
+                                            loc.put("altitude" , mLastMslAltitude);
+                                        }
+
+                                        loc.put("speed" , (double)location.getSpeed());
+                                        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
+                                            loc.put("speed_accuracy" , (double)location.getSpeedAccuracyMetersPerSecond());
+                                        }
+                                        loc.put("heading" , (double) location.getBearing());
+                                        loc.put("time" , (double) location.getTime());
+
+                                        if(result != null){
+                                            result.success(loc);
+                                            result = null;
+                                        }
+                                        if(events != null){
+                                            events.success(loc);
+                                        }else{
+                                            mFusedLocationClient.removeLocationUpdates(mLocationCallback);
+                                        }
+                                    }
+
+                                    @Override
+                                    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+                                    }
+
+                                    @Override
+                                    public void onProviderEnabled(String provider) {
+
+                                    }
+
+                                    @Override
+                                    public void onProviderDisabled(String provider) {
+
+                                    }
+                                });
+                    }
+                }
+            }
         };
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) { 
